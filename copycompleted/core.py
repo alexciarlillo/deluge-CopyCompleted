@@ -55,8 +55,25 @@ DEFAULT_PREFS = {
     "copy_to" : "",
     "umask" : "",
     "move_to": False,
-    "append_label_todir": False
+    "append_label_todir": False,
+    "extract": False
 }
+
+EXTRACT_COMMANDS = {
+    ".rar": ["unrar", "x -o+ -y"],
+    ".tar": ["tar", "-xf"],
+    ".zip": ["unzip", ""],
+}
+# Test command exists and if not, remove.
+for cmd in required_cmds:
+    if not which(cmd):
+        for k,v in EXTRACT_COMMANDS.items():
+            if cmd in v[0]:
+                log.warning("EXTRACTOR: %s not found, disabling support for %s", cmd, k)
+                del EXTRACT_COMMANDS[k]
+
+if not EXTRACT_COMMANDS:
+    raise Exception("EXTRACTOR: No archive extracting programs found, plugin will be disabled")
 
 class TorrentCopiedEvent(DelugeEvent):
     """
@@ -105,7 +122,7 @@ class Core(CorePluginBase):
         Copy the torrent now. It will do this in a separate thread to avoid
         freezing up this thread (which causes freezes in the daemon and hence
         web/gtk UI.)
-        """		
+        """
         torrent = component.get("TorrentManager").torrents[torrent_id]
         info = torrent.get_status([ "name", "save_path", "move_on_completed", "move_on_completed_path"])
         get_label = component.get("Core").get_torrent_status(torrent_id,["label"])
@@ -123,7 +140,7 @@ class Core(CorePluginBase):
             return
 
         log.info("COPYCOMPLETED: Copying %s from %s to %s", info["name"], old_path, new_path)
-        thread.start_new_thread(Core._thread_copy, (torrent_id, old_path, new_path, files, umask))	
+        thread.start_new_thread(Core._thread_copy, (torrent_id, old_path, new_path, files, umask))
 
     def on_torrent_copied(self, torrent_id, old_path, new_path, path_pairs):
         """
@@ -163,7 +180,43 @@ class Core(CorePluginBase):
                         log.error("COPYCOMPLETED: Move Storage failed")
 
             torrent.resume()
-        
+
+        if self.config["extract"] and path_pairs:
+            log.debug("COPYCOMPLETED: Attempting Extraction")
+            tid = component.get("TorrentManager").torrents[torrent_id]
+            tid_status = tid.get_status(["save_path", "name"])
+            for old_fp,new_fp in path_pairs:
+                file_root, file_ext = os.path.splitext(new_fp)
+                if file_ext not in EXTRACT_COMMANDS:
+                    log.warning("EXTRACTOR: Can't extract file with unknown file type: %s" % f["path"])
+                    continue
+                cmd = EXTRACT_COMMANDS[file_ext]
+                name = tid_status["name"]
+
+                dest = os.path.join(new_path,name)
+
+                # Create the destination folder if it doesn't exist
+                if not os.path.exists(dest):
+                    try:
+                        os.makedirs(dest)
+                    except Exception, e:
+                        log.error("EXTRACTOR: Error creating destination folder: %s", e)
+                        return
+
+                def on_extract_success(result, torrent_id, fpath):
+                # XXX: Emit an event
+                log.info("EXTRACTOR: Extract successful: %s (%s)", fpath, torrent_id)
+
+                def on_extract_failed(result, torrent_id, fpath):
+                    # XXX: Emit an event
+                    log.error("EXTRACTOR: Extract failed: %s (%s)", fpath, torrent_id)
+
+                # Run the command and add some callbacks
+                log.debug("EXTRACTOR: Extracting %s with %s %s to %s", newfp, cmd[0], cmd[1], dest)
+                d = getProcessValue(cmd[0], cmd[1].split() + [str(newfp)], {}, str(dest))
+                d.addCallback(on_extract_success, torrent_id, fpath)
+                d.addErrback(on_extract_failed, torrent_id, fpath)
+
     def on_alert_performance(self, alert):
         log.debug("COPYCOMPLETED: Performance Alert: %s", alert.message())
         if 'send buffer watermark too low' in alert.message():
@@ -231,7 +284,7 @@ class Core(CorePluginBase):
             log.debug("COPYCOMPLETED: reverting umask to original")
             os.umask(old_umask)
 
-        component.get("EventManager").emit(TorrentCopiedEvent(torrent_id, old_path, new_path, path_pairs))	
+        component.get("EventManager").emit(TorrentCopiedEvent(torrent_id, old_path, new_path, path_pairs))
 
     @export()
     def set_config(self, config):
