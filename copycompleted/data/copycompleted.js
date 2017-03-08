@@ -204,10 +204,18 @@ Deluge.ux.preferences.CopyCompletedPage = Ext.extend(Ext.Panel, {
 		
 		this.appendLabel = this.form.add({
 			fieldLabel: '',
-            labelSeparator: '',
+                        labelSeparator: '',
 			name: 'append_label_todir',
 			xtype: 'checkbox',
 			boxLabel: _('Append Label')
+		});
+		
+                this.doExtract = this.form.add({
+			fieldLabel: '',
+                        labelSeparator: '',
+			name: 'do_extract',
+			xtype: 'checkbox',
+			boxLabel: _('Extract')
 		});
 		
 		this.umask = this.form.add({
@@ -263,6 +271,7 @@ Deluge.ux.preferences.CopyCompletedPage = Ext.extend(Ext.Panel, {
 		config['copy_to'] = this.copyTo.getValue();
 		config['umask'] = this.umask.getValue();
 		config['append_label_todir'] = this.appendLabel.getValue();
+		config['extract'] = this.doExtract.getValue();
 		
 		
 		deluge.client.copycompleted.set_config(config);
@@ -278,7 +287,8 @@ Deluge.ux.preferences.CopyCompletedPage = Ext.extend(Ext.Panel, {
 			success: function(config) {
 				this.copyTo.setValue(config['copy_to']);
 				this.umask.setValue(config['umask']);
-				this.appendLabel.setValue(config['append_label_todir']);				
+                                this.appendLabel.setValue(config['append_label_todir']);				
+				this.doExtract.setValue(config['extract']);				
 			},
 			scope: this
 		});
