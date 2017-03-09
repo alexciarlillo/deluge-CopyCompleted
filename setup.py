@@ -39,14 +39,16 @@
 
 from setuptools import setup
 
-__plugin_name__ = "CopyCompleted"
-__author__ = "Sam Lai"
-__author_email__ = "sam@edgylogic.com"
+__plugin_name__ = "CopyCompleted and Extract"
+__author__ = "Alex Ciarlillo"
+__author_email__ = "alex.ciarlillo@gmail.com"
 __version__ = "0.8"
 __url__ = "http://deluge-torrent.org"
 __license__ = "GPLv3"
-__description__ = "Copies completed torrents to another directory."
+__description__ = "Copies completed torrents to another directory with the option of extraction."
 __long_description__ = """Copies completed torrents to another directory.
+
+Includes option to extract files, as well as append labels to copy location.
 
 Also includes option to move data to overcome issue with network speed
 drop when using normal Move Storage.
