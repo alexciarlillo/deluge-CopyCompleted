@@ -50,6 +50,7 @@ from deluge.event import DelugeEvent
 from deluge.ui.client import client
 
 from twisted.internet import reactor
+from twisted.internet.utils import getProcessValue
 
 DEFAULT_PREFS = {
     "copy_to" : "",
@@ -64,16 +65,6 @@ EXTRACT_COMMANDS = {
     ".tar": ["tar", "-xf"],
     ".zip": ["unzip", ""],
 }
-# Test command exists and if not, remove.
-for cmd in required_cmds:
-    if not which(cmd):
-        for k,v in EXTRACT_COMMANDS.items():
-            if cmd in v[0]:
-                log.warning("EXTRACTOR: %s not found, disabling support for %s", cmd, k)
-                del EXTRACT_COMMANDS[k]
-
-if not EXTRACT_COMMANDS:
-    raise Exception("EXTRACTOR: No archive extracting programs found, plugin will be disabled")
 
 class TorrentCopiedEvent(DelugeEvent):
     """
@@ -185,15 +176,18 @@ class Core(CorePluginBase):
             log.debug("COPYCOMPLETED: Attempting Extraction")
             tid = component.get("TorrentManager").torrents[torrent_id]
             tid_status = tid.get_status(["save_path", "name"])
+            
             for old_fp,new_fp in path_pairs:
                 file_root, file_ext = os.path.splitext(new_fp)
                 if file_ext not in EXTRACT_COMMANDS:
-                    log.warning("EXTRACTOR: Can't extract file with unknown file type: %s" % f["path"])
+                    log.warning("EXTRACTOR: Can't extract file with unknown file type: %s", new_fp)
                     continue
+            
                 cmd = EXTRACT_COMMANDS[file_ext]
                 name = tid_status["name"]
 
                 dest = os.path.join(new_path,name)
+                log.debug("EXTRACTOR: Destination folder: %s", dest)
 
                 # Create the destination folder if it doesn't exist
                 if not os.path.exists(dest):
@@ -204,18 +198,18 @@ class Core(CorePluginBase):
                         return
 
                 def on_extract_success(result, torrent_id, fpath):
-                # XXX: Emit an event
-                log.info("EXTRACTOR: Extract successful: %s (%s)", fpath, torrent_id)
+                    # XXX: Emit an event
+                    log.info("EXTRACTOR: Extract successful: %s (%s)", fpath, torrent_id)
 
                 def on_extract_failed(result, torrent_id, fpath):
                     # XXX: Emit an event
                     log.error("EXTRACTOR: Extract failed: %s (%s)", fpath, torrent_id)
 
                 # Run the command and add some callbacks
-                log.debug("EXTRACTOR: Extracting %s with %s %s to %s", newfp, cmd[0], cmd[1], dest)
-                d = getProcessValue(cmd[0], cmd[1].split() + [str(newfp)], {}, str(dest))
-                d.addCallback(on_extract_success, torrent_id, fpath)
-                d.addErrback(on_extract_failed, torrent_id, fpath)
+                log.debug("EXTRACTOR: Extracting %s with %s %s to %s", new_fp, cmd[0], cmd[1], dest)
+                d = getProcessValue(cmd[0], cmd[1].split() + [str(new_fp)], {}, str(dest))
+                d.addCallback(on_extract_success, torrent_id, new_fp)
+                d.addErrback(on_extract_failed, torrent_id, new_fp)
 
     def on_alert_performance(self, alert):
         log.debug("COPYCOMPLETED: Performance Alert: %s", alert.message())
