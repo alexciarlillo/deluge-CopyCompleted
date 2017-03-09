@@ -42,7 +42,7 @@ from setuptools import setup
 __plugin_name__ = "CopyCompletedExtract"
 __author__ = "Alex Ciarlillo"
 __author_email__ = "alex.ciarlillo@gmail.com"
-__version__ = "0.8"
+__version__ = "0.9"
 __url__ = "http://deluge-torrent.org"
 __license__ = "GPLv3"
 __description__ = "Copies completed torrents to another directory with the option of extraction."
