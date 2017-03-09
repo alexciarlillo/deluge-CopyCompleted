@@ -39,7 +39,7 @@
 
 from setuptools import setup
 
-__plugin_name__ = "CopyCompleted and Extract"
+__plugin_name__ = "CopyCompletedExtract"
 __author__ = "Alex Ciarlillo"
 __author_email__ = "alex.ciarlillo@gmail.com"
 __version__ = "0.8"
